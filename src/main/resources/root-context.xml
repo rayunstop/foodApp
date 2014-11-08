@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:jpa="http://www.springframework.org/schema/data/jpa"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+	http://www.springframework.org/schema/data/jpa http://www.springframework.org/schema/data/jpa/spring-jpa-1.0.xsd
+	http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-3.0.xsd
+	http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.0.xsd">
+	
+	<!-- Root Context: defines shared resources visible to all other web components -->
+	<description>Spring公共配置</description>
+	
+	<!-- 使用annotation 自动注册bean, 并保证@Required、@Autowired的属性被注入 -->
+    <context:component-scan base-package="org.meishi.app">
+        <context:exclude-filter type="annotation"
+                                expression="org.springframework.stereotype.Controller"/>
+    </context:component-scan>
+	
+	<context:property-placeholder ignore-unresolvable="true" local-override="true"
+                                  location="classpath*:/application.properties,classpath*:/application.local.properties"/>
+	
+	<bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+		<!-- 连接信息 -->
+		<property name="driverClassName" value="${jdbc.driver}"></property>
+		<property name="url" value="${jdbc.url}"></property>
+		<property name="username" value="${jdbc.username}"></property>
+		<property name="password" value="${jdbc.password}"></property>
+		
+		<!-- Connection Pooling Info -->
+        <property name="initialSize" value="${dbcp.initialSize}" />
+        <property name="maxActive" value="${dbcp.maxActive}" />
+        <property name="maxIdle" value="${dbcp.maxIdle}" />
+        <property name="minIdle" value="${dbcp.minIdle}" />
+        <property name="defaultAutoCommit" value="false"/>
+        <!-- 连接Idle一个小时后超时 -->
+        <property name="timeBetweenEvictionRunsMillis" value="3600000"/>
+        <property name="minEvictableIdleTimeMillis" value="3600000"/>
+	</bean>	
+	<!-- Jpa Entity Manager 配置 -->
+	<bean id="hibernateJpaVendorAdapter" class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter"/>
+    <bean id="entityManagerFactory" class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+        <property name="dataSource" ref="dataSource"/>
+        <property name="jpaVendorAdapter" ref="hibernateJpaVendorAdapter"/>
+        <property name="packagesToScan">
+        	<list>
+        		<value>org.meishi.app.modules</value>
+        	</list>
+        </property>
+        <property name="jpaProperties" value="#{property.getProperties('jpaProperties.')}"></property>
+    </bean>
+    
+    <bean id="properties"
+	class="org.springframework.beans.factory.config.PropertiesFactoryBean">
+	<property name="locations">
+		<list>
+			<!-- 其他模块也需要定义类似属性时，可以使用 -->
+			<value>classpath:jpa.properties</value>
+		</list>
+	</property>
+	<qualifier value="main" />
+	</bean>
+	<bean id="property" class="org.meishi.app.commons.util.Property">
+		<property name="properties" ref="properties"></property>
+	</bean>
+    
+    <!-- Spring Data Jpa配置 -->
+    <jpa:repositories base-package="org.meishi.app.modules" transaction-manager-ref="transactionManager"
+                      entity-manager-factory-ref="entityManagerFactory"/>
+
+    <!-- Jpa 事务配置 -->
+    <bean id="transactionManager" class="org.springframework.orm.jpa.JpaTransactionManager">
+        <property name="entityManagerFactory" ref="entityManagerFactory"/>
+    </bean>
+
+    <!-- 使用annotation定义事务 -->
+    <tx:annotation-driven transaction-manager="transactionManager" proxy-target-class="true"/>
+</beans>
